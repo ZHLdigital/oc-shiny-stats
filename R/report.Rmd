@@ -1,0 +1,74 @@
+---
+output: pdf_document
+classoption: landscape
+---
+```{r setup, include=FALSE}
+# Copyright 2017 The WWU eLectures Team All rights reserved.
+#
+# Licensed under the Educational Community License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+#
+#     http://opensource.org/licenses/ECL-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library('reshape2')
+library('dplyr')
+library('RJSONIO')
+library('ggplot2')
+library('knitr')
+
+fromReport <- as.character(input$dateRange[1])
+toReport <- as.character(input$dateRange[2])
+
+episodes_count <- subset(episodes_unique, date %in% input$dateRange[1]:input$dateRange[2])
+episodes_count <- subset(episodes_count, episodeID %in% input$episodes & seriesID == substr(paste(names(parseQueryString(session$clientData$url_search)), parseQueryString(session$clientData$url_search), sep = "=", collapse=", "), 8, 200))
+episodes_count <- aggregate(data = episodes_count, counts ~ Episodes, sum)
+colnames(episodes_count) <- c("Episodes", "Hits")
+
+p <- ggplot(subset(episodes_unique, episodeID %in% input$episodes & seriesID == subset(seriesTitles, ID == substr(paste(names(parseQueryString(session$clientData$url_search)), parseQueryString(session$clientData$url_search), sep = "=", collapse=", "), 8, 200))$ID), aes(x = date, y = counts, group = Episodes, color = Episodes)) +
+  geom_line() +
+  xlab("Date") +
+  ylab("Hits") +
+  scale_x_date(date_breaks = "1 week") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position="right", legend.title=element_text(size=25) , legend.text=element_text(size=20), legend.key.size=unit(15, "mm")) +
+  xlim(input$dateRange) +
+  ylim(c(0,max(subset(episodes_unique, seriesID == subset(seriesTitles, ID == substr(paste(names(parseQueryString(session$clientData$url_search)), parseQueryString(session$clientData$url_search), sep = "=", collapse=", "), 8, 200))$ID & date %in% input$dateRange[1]:input$dateRange[2])$counts)))
+      
+if (input$recDates == TRUE) {
+  p <- p + geom_vline(xintercept = as.numeric(as.Date(subset(episodeTitles, ID %in% input$episodes)$Date)), linetype = "longdash")
+}
+      
+```
+
+---
+title: "Zugriffe auf `r names(subset(series, series %in% substr(paste(names(parseQueryString(session$clientData$url_search)), parseQueryString(session$clientData$url_search), sep = "=", collapse=", "), 8, 200)))`"
+author: "eLectures Supportstelle"
+---
+Generiert am: `r Sys.Date()`
+
+**Zeitraum**
+
+Start: `r as.Date(fromReport)`
+
+Ende: `r as.Date(toReport)`
+
+## Zugriffe pro Aufnahme
+In dem Zeitraum von `r as.Date(fromReport)` bis `r as.Date(toReport)` wurde `r sum(episodes_count$Hits)` Mal auf Ihre Aufnahmen zugegriffen. Die folgende Tabelle zeigt Ihnen die Zugriffe pro Aufnahme in diesem Zeitraum.
+
+```{r episodestable, echo=FALSE}
+kable(episodes_count)
+```
+
+Der folgende Plot zeigt die Verteilung dieser Zugriffe über den gegebenen Zeitraum per Aufnahme. Die gestrichelten Linien zeigen einen Aufnahmetag.
+
+```{r episodesfigure, echo=FALSE, fig.height=15, fig.width=20, warning=FALSE}
+print(p)
+```
